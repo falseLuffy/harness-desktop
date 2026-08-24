@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeepSeek Harness</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: #0d1226;
+      color: #e8ecf8;
+    }
+
+    /* ---- harness iframe ---- */
+    #appFrame {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #fff;
+      z-index: 1;
+    }
+
+    /* ---- startup state page (visible until the server is ready) ---- */
+    #boot {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(1200px 600px at 50% -10%, #1e2a52 0%, #0d1226 55%, #070a18 100%);
+    }
+
+    #boot.hidden {
+      display: none;
+    }
+
+    .card {
+      width: min(520px, 86vw);
+      text-align: center;
+      padding: 40px 36px;
+      border-radius: 18px;
+      background: rgba(20, 28, 58, 0.55);
+      border: 1px solid rgba(120, 150, 230, 0.18);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 18px;
+      border-radius: 18px;
+      background: linear-gradient(145deg, #1b2a5e, #2b3f8f);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+      color: #fff;
+      box-shadow: 0 10px 28px rgba(43, 63, 143, 0.45);
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .sub {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #9aa7cf;
+    }
+
+    .status-line {
+      margin-top: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      min-height: 28px;
+      font-size: 14px;
+      color: #c6d0f0;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(150, 175, 240, 0.25);
+      border-top-color: #7ea0ff;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    .spinner.hidden {
+      display: none;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .error-box {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(255, 90, 90, 0.12);
+      border: 1px solid rgba(255, 110, 110, 0.35);
+      color: #ffb4b4;
+      font-size: 13px;
+      line-height: 1.55;
+      text-align: left;
+      display: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .error-box.visible {
+      display: block;
+    }
+
+    .boot-actions {
+      margin-top: 24px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .hint {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #66739c;
+    }
+
+    button {
+      padding: 9px 18px;
+      border-radius: 9px;
+      border: 1px solid rgba(140, 170, 255, 0.35);
+      background: rgba(60, 85, 170, 0.28);
+      color: #dfe7ff;
+      font-size: 13.5px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.05s;
+    }
+
+    button:hover {
+      background: rgba(80, 110, 210, 0.42);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      background: #3d5fe0;
+      border-color: #5b7af0;
+      font-weight: 600;
+    }
+
+    button.primary:hover {
+      background: #4a6bf0;
+    }
+
+    button.ghost {
+      background: transparent;
+    }
+
+    /* ---- round floating icon, bottom-right of the window (hidden:
+             the config dialog is opened from the tray menu instead) ---- */
+    #fab {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 1px solid rgba(120, 150, 230, 0.45);
+      background: linear-gradient(145deg, #1c2b60, #2b3f8f);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+      transition: transform 0.1s;
+      z-index: 100;
+      /* hidden: declared last so it wins over the display:flex above */
+      display: none;
+    }
+
+    #fab:hover {
+      transform: scale(1.06);
+    }
+
+    #fab:active {
+      transform: scale(0.96);
+    }
+
+    #fab svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    /* ---- center config dialog ---- */
+    #configModal {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5, 8, 20, 0.55);
+    }
+
+    #configModal.open {
+      display: flex;
+    }
+
+    .dialog {
+      width: min(380px, 90vw);
+      border-radius: 14px;
+      background: rgba(16, 23, 48, 0.96);
+      border: 1px solid rgba(120, 150, 230, 0.25);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+      padding: 18px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dialog .head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dialog .head .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot.idle {
+      background: #8a94b8;
+    }
+
+    .dot.starting {
+      background: #f0b429;
+      animation: pulse 1s infinite;
+    }
+
+    .dot.running {
+      background: #3ddc84;
+    }
+
+    .dot.error {
+      background: #ff5c5c;
+    }
+
+    @keyframes pulse {
+      50% {
+        opacity: 0.35;
+      }
+    }
+
+    .dialog .head .title {
+      font-size: 14.5px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .dialog .head .close {
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+      border: none;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #c6d0f0;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .dialog .head .close:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .status-line {
+      padding: 9px 11px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(120, 150, 230, 0.14);
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #aab6dd;
+      min-height: 42px;
+    }
+
+    .status-line .err {
+      color: #ffb4b4;
+    }
+
+    .dialog .btn {
+      width: 100%;
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13.5px;
+      padding: 2px 0;
+      min-width: 0;
+    }
+
+    .switch-row>span:first-child {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .switch-row .switch-box {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .switch-row input {
+      display: none;
+    }
+
+    .switch-row .track {
+      width: 40px;
+      height: 22px;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.14);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+
+    .switch-row .track::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #cfd8f5;
+      transition: transform 0.18s;
+    }
+
+    .switch-row input:checked+.track {
+      background: #3d5fe0;
+    }
+
+    .switch-row input:checked+.track::after {
+      transform: translateX(18px);
+      background: #fff;
+    }
+
+    .dialog .quit {
+      background: transparent;
+      border-color: rgba(255, 110, 110, 0.35);
+      color: #ffb4b4;
+    }
+
+    .dialog .quit:hover {
+      background: rgba(255, 90, 90, 0.15);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- harness embedded here once the server is ready -->
+  <iframe id="appFrame" title="DeepSeek Harness" src="about:blank"></iframe>
+
+  <!-- startup state page -->
+  <div id="boot">
+    <div class="card">
+      <div class="logo">DSH</div>
+      <h1>DeepSeek Harness</h1>
+      <div class="sub">正在为桌面端启动本地服务…</div>
+      <div class="status-line">
+        <div class="spinner" id="bootSpinner"></div>
+        <span id="bootStatus">准备中…</span>
+      </div>
+      <div class="error-box" id="bootError"></div>
+      <div class="boot-actions">
+        <button class="primary" id="bootRetry">重启服务</button>
+        <button id="bootBrowser">在浏览器中打开</button>
+      </div>
+      <div class="hint">首次启动会自动安装 dsh 依赖，可能需要 1–3 分钟</div>
+    </div>
+  </div>
+
+  <!-- round floating icon, bottom-right -->
+  <button id="fab" title="服务配置" aria-label="服务配置" style="display: none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path
+        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z">
+      </path>
+    </svg>
+  </button>
+
+  <!-- center config dialog -->
+  <div id="configModal">
+    <div class="dialog">
+      <div class="head">
+        <span class="dot idle" id="cfgDot"></span>
+        <span class="title">服务配置</span>
+        <button class="close" id="cfgClose" title="关闭">✕</button>
+      </div>
+      <div class="status-line" id="cfgStatus">正在连接…</div>
+      <button class="btn primary" id="cfgRestart">重启服务</button>
+      <button class="btn" id="cfgBrowser">在浏览器中打开</button>
+      <label class="switch-row">
+        <span>开机自启动</span>
+        <span class="switch-box">
+          <input type="checkbox" id="cfgAutostart" />
+          <span class="track"></span>
+        </span>
+      </label>
+      <button class="btn quit" id="cfgQuit">退出</button>
+    </div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+
+</html>
