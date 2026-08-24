@@ -1,6 +1,6 @@
 # harness-desktop
 
-### DeepSeek Harness 的桌面，功能极简，只保留必要功能，无额外性能消耗，
+### DeepSeek Harness 的桌面应用，功能极简，只保留必要功能，无额外性能消耗，
 
 启动应用时会自动执行 `npx --yes @deepseek-ai/dsh web --host 127.0.0.1 --port 3080 --no-open`（无控制台窗口、不自动打开浏览器），
 服务就绪后主窗口通过 `<iframe>` 嵌入 `http://127.0.0.1:3080`（不导航离开壳子页）。
